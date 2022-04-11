@@ -1,6 +1,5 @@
 import sqlite3
 import math
-import wcag_contrast_ratio as contrast
 from colour import Color
 import pandas as pd
 import numpy as np
@@ -19,16 +18,22 @@ def query_db(id):
     pass
 ok_pieces = query_db(3)
 piece_features = query_db(2)
-
 # print(ok_pieces)
 # print(piece_features)
 
+def ColorDistance(rgb1,rgb2):
+
+    rm = 0.5*(rgb1[0]+rgb2[0])
+    d = sum((2+rm,4,3-rm)*(rgb1-rgb2)**2)**0.5
+    print(d)
+    return d
 def get_score(piece_features, ok_pieces):
     score = 0
     # iterate over rules and assign score
     for rule in get_recommender_rules(piece_features,  ok_pieces):
         score += rule
     return score
+
 
 def get_recommender_rules(piece_features, ok_pieces):
     score=[]
@@ -40,11 +45,10 @@ def get_recommender_rules(piece_features, ok_pieces):
           c2=Color("%s"%str(ok_pieces["Color"].iloc[0])).rgb
           # c1=Color('black').rgb
           # c2=Color('white').rgb
-          # print(c2)
-          # print(c1)
-          m=contrast.rgb(c1, c2)
-          # print(m)
-          # print("ok1")
+          print(np.array(c2))
+          print(np.array(c1))
+          m=ColorDistance(np.array(c1),np.array(c2))
+          print(m)
           score.append(math.floor(m))
 
         if(rule==2):
