@@ -8,11 +8,11 @@ import wcag_contrast_ratio as contrast
 
 def query_db(dataframe_query):
     con = sqlite3.connect('D:\language\project database\pyScript\dbtest  (1).db')
-    # cursor = con.cursor()
+
     con.commit()
     data = pd.read_sql('SELECT * FROM clothes', con)
     y = data.query(dataframe_query)
-    # print(y)
+
     return y
     pass
 
@@ -20,7 +20,7 @@ def query_db(dataframe_query):
 def colorDistance(rgb1, rgb2):
     rm = 0.5 * (rgb1[0] + rgb2[0])
     d = sum((2 + rm, 4, 3 - rm) * (rgb1 - rgb2) ** 2) ** 0.5
-    # print(d)
+
     return d
 
 
@@ -29,14 +29,14 @@ def get_score(piece_features, ok_pieces):
     # iterate over rules and assign score
     for rule in get_recommender_rules(piece_features, ok_pieces):
         score += rule
-    print(score)
+
     return score
 
 
 def get_recommender_rules(piece_features, ok_pieces):
     score = []
     pieces = query_db('id==%d' % ok_pieces)
-    print("id = %d" % ok_pieces)
+
     for rule in range(1, 5):
         # Color rule
         if rule == 1:
@@ -45,7 +45,7 @@ def get_recommender_rules(piece_features, ok_pieces):
             ed = colorDistance(np.array(c1), np.array(c2))
             if 0 <= ed <= 0.5:
                 score.append(int("%d" % 100))
-            # float("%.3f" % 200)
+
             else:
                 m = contrast.rgb(c1, c2)
                 if m * 10 > 100:
@@ -53,20 +53,9 @@ def get_recommender_rules(piece_features, ok_pieces):
                 else:
                     score.append(int("%d" % math.floor(m * 10)))
 
-            # print(piece_features["Color"].iloc[0])
-            # print(ok_pieces)
-
-            # c1=Color('black').rgb
-            # c2=Color('blue').rgb
-            # print(np.array(c2))
-            # print(np.array(c1))
-            # m = ColorDistance(np.array(c1), np.array(c2))
-            # print(m)
-            # score.append(float("%.3f" % m))
         # Style rule
         if rule == 2:
-            # print(piece_features["Style"].iloc[0])
-            # print(ok_pieces["Style"].iloc[0])
+
             s1 = str(piece_features["Style"].iloc[0])
             s2 = str(pieces["Style"].iloc[0])
             if s1 == s2:
@@ -107,39 +96,39 @@ def get_recommender_rules(piece_features, ok_pieces):
             else:
                 score.append(30)
 
-    # print(score)
     return score
 
 
 def sort_pieces(ok_pieces, scores):
-    print("ok")
     pieces = []
+
     for i in range(ok_pieces.shape[0]):
-        pieces.append(ok_pieces["Type"].iloc[i])
-    # print(pieces)
-    pieces, scores = (list(i) for i in zip(*sorted(zip(pieces, scores))))
-    # print(ok_pieces)
-    print(scores)
-    return pieces
+        pieces.append(ok_pieces["id"].iloc[i])
+
+    scores, pieces = (list(t) for t in zip(*sorted(zip(scores, pieces), reverse=True)))
+
+    return pieces[:5]
     pass
 
 
 def recommender(piece_id: int):
     piece_features = query_db('id==%d' % piece_id)
-    print(piece_features)
-    # print(piece_features["Match"].iloc[0])
+    # print("user select : \n",piece_features)
+
     if piece_features["Match"].iloc[0] == "3":
         ok_pieces = query_db('Match=="1" or Match=="2" ')
     else:
         ok_pieces = query_db('Match=="3" or Match != "%d" ' % int(piece_features["Match"].iloc[0]))
 
-    print(ok_pieces)
     scores = []
-    # print([ok_pieces["id"].iloc[1],ok_pieces["id"].iloc[2],ok_pieces["id"].iloc[3],ok_pieces["id"].iloc[4],ok_pieces["id"].iloc[5]])
+
     for i in range(ok_pieces.shape[0]):
         scores.append(get_score(piece_features, ok_pieces["id"].iloc[i]))
     sorted_pieces = sort_pieces(ok_pieces, scores)  # sort ok_pieces according to scores list ...
+    # for i in range(len(sorted_pieces)):
+    #     sort_query = query_db('id==%d' % sorted_pieces[i])
+    #     print("sorted pieces : \n",sort_query)
     return sorted_pieces
 
 
-print(recommender(11))
+print(recommender(16))
