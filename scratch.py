@@ -2,16 +2,9 @@ import sqlite3
 import math
 from math import comb
 from PIL import Image
-import colorsys
 from colour import Color
 import pandas as pd
-import numpy as np
-import wcag_contrast_ratio as contrast
 import colorsys
-
-(r, g, b) = Color('red').rgb
-(h, s, v) = colorsys.rgb_to_hsv(r, g, b)
-print('HSV : ', r, g, b)
 
 clothes = 'SELECT * FROM clothes'
 style = 'SELECT * FROM Style'
@@ -30,19 +23,11 @@ def query_db(dataframe_query, table):
     pass
 
 
-def colorDistance(rgb1, rgb2):
-    rm = 0.5 * (rgb1[0] + rgb2[0])
-    d = sum((2 + rm, 4, 3 - rm) * (rgb1 - rgb2) ** 2) ** 0.5
-
-    return d
-
-
 def get_score(piece_features, ok_pieces):
     score = 0
     # iterate over rules and assign score
     for rule in get_recommender_rules(piece_features, ok_pieces):
         score += rule
-    # print(score)
     return score
 
 
@@ -53,8 +38,8 @@ def get_recommender_rules(piece_features, ok_pieces):
     for rule in range(1, 5):
         # Color rule
         if rule == 1:
-            color_score = color_matching(piece_features, pieces, score)
-            print(f'Color Matching Score: {color_score}')
+            color_score = color_matching(piece_features, pieces)
+            # print(f'Color Matching Score: {color_score}')
 
             score.append(color_score)
 
@@ -63,16 +48,13 @@ def get_recommender_rules(piece_features, ok_pieces):
             p1_style_id = piece_features["StyleId"].iloc[0]
             get_style1_by_id = query_db('id == %d' % p1_style_id, style)
             p1_style = get_style1_by_id["Style"].iloc[0]
-            # print(p1_style, "ok1")
 
             p2_style_id = pieces["StyleId"].iloc[0]
             get_style2_by_id = query_db('id == %d' % p2_style_id, style)
             p2_style = get_style2_by_id["Style"].iloc[0]
-            # print(p2_style, "ok2")
 
             score_style = query_db('Style == "%s" ' % p1_style, style)['%s' % p2_style].iloc[0]
 
-            # print(score_style)
             if score_style < 0.3:
                 score.append(0)
             else:
@@ -83,16 +65,13 @@ def get_recommender_rules(piece_features, ok_pieces):
             p1_print_id = piece_features["PrintId"].iloc[0]
             get_print1_by_id = query_db('id == %d' % p1_print_id, printT)
             p1_print = get_print1_by_id["Print"].iloc[0]
-            # print(p1_print, "ok1")
 
             p2_print_id = pieces["PrintId"].iloc[0]
             get_print2_by_id = query_db('id == %d' % p2_print_id, printT)
             p2_print = get_print2_by_id["Print"].iloc[0]
-            # print(p2_print, "ok2")
 
             score_print = query_db('Print == "%s" ' % p1_print, printT)['%s' % p2_print].iloc[0]
 
-            # print(score_print)
             if score_print < 0.3:
                 score.append(0)
             else:
@@ -102,16 +81,13 @@ def get_recommender_rules(piece_features, ok_pieces):
             p1_fit_id = piece_features["FitId"].iloc[0]
             get_fit1_by_id = query_db('id == %d' % p1_fit_id, fit)
             p1_fit = get_fit1_by_id["Fit"].iloc[0]
-            # print(p1_fit, "ok1")
 
             p2_fit_id = pieces["FitId"].iloc[0]
             get_fit2_by_id = query_db('id == %d' % p2_fit_id, fit)
             p2_fit = get_fit2_by_id["Fit"].iloc[0]
-            # print(p2_fit, "ok2")
 
             score_fit = query_db('Fit == "%s" ' % p1_fit, fit)['%s' % p2_fit].iloc[0]
 
-            # print(score_fit)
             if score_fit < 0.3:
                 score.append(0)
             else:
@@ -127,14 +103,13 @@ def sort_pieces(ok_pieces, scores):
         pieces.append(ok_pieces["id"].iloc[i])
 
     scores, pieces = (list(t) for t in zip(*sorted(zip(scores, pieces), reverse=True)))
-    # print(scores[:5])
+
     return pieces[:5]
     pass
 
 
 def recommender(piece_id: int):
     piece_features = query_db('id==%d' % piece_id, clothes)
-    # print("user select : \n",piece_features)
 
     if piece_features["Match"].iloc[0] == "3":
         ok_pieces = query_db('Match=="1" or Match=="2" ', clothes)
@@ -147,31 +122,48 @@ def recommender(piece_id: int):
         scores.append(get_score(piece_features, ok_pieces["id"].iloc[i]))
     sorted_pieces = sort_pieces(ok_pieces, scores)  # sort ok_pieces according to scores list ...
     # for i in range(len(sorted_pieces)):
-    #     sort_query = query_db('id==%d' % sorted_pieces[i])
+    #     sort_query = query_db('id==%d' % sorted_pieces[i],clothes)
     #     print("sorted pieces : \n",sort_query)
     return sorted_pieces
 
 
-def color_matching(piece_features, pieces, score):
+def color_matching(piece_features, pieces):
     colors_test = []
     (r1, g1, b1) = Color("%s" % str(piece_features["Color"].iloc[0])).rgb
-    c1_rgb = int(r1 * 255), int(g1 * 255), int(b1 * 255)
-    print(piece_features["Color"].iloc[0])
-    print(c1_rgb)
     (r2, g2, b2) = Color("%s" % str(pieces["Color"].iloc[0])).rgb
-    c2_rgb = int(r2 * 255), int(g2 * 255), int(b2 * 255)
-    print(pieces["Color"].iloc[0])
-    print(c2_rgb)
     (h1, s1, v1) = colorsys.rgb_to_hsv(r1, g1, b1)
-    (h2, s2, v2) = colorsys.rgb_to_hsv(r2, g2, b1)
+    (h2, s2, v2) = colorsys.rgb_to_hsv(r2, g2, b2)
     c1_hsv = (int(h1 * 360), int(s1 * 100), int(v1 * 100))
     colors_test.append(c1_hsv)
     c2_hsv = (int(h2 * 360), int(s2 * 100), int(v2 * 100))
     colors_test.append(c2_hsv)
-    print(colors_test)
-    colors_set = colors_test
-    # create_test_image(colors_set)
-    return get_color_matching_score(colors_set)
+    # create_test_image(colors_test)
+    return get_color_matching_score(colors_test)
+
+
+#
+# def rgb_to_hsv(r, g, b):
+#     r = float(r)
+#     g = float(g)
+#     b = float(b)
+#     high = max(r, g, b)
+#     low = min(r, g, b)
+#     h, s, v = high, high, high
+#
+#     d = high - low
+#     s = 0 if high == 0 else d / high
+#
+#     if high == low:
+#         h = 0.0
+#     else:
+#         h = {
+#             r: (g - b) / d + (6 if g < b else 0),
+#             g: (b - r) / d + 2,
+#             b: (r - g) / d + 4,
+#         }[high]
+#         h /= 6
+#
+#     return h, s, v
 
 
 def get_color_score1(col_list):
@@ -259,4 +251,4 @@ def create_test_image(colors):
     img.show()
 
 
-print(recommender(45))
+print(recommender(39))
