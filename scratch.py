@@ -1,10 +1,10 @@
 import sqlite3
-import math
 from math import comb
 from PIL import Image
 from colour import Color
 import pandas as pd
 import colorsys
+import matplotlib.pyplot as plt
 
 clothes = 'SELECT * FROM clothes'
 style = 'SELECT * FROM Style'
@@ -13,7 +13,7 @@ fit = 'SELECT * FROM Fit'
 
 
 def query_db(dataframe_query, table):
-    con = sqlite3.connect('D:\language\project database\pyScript\dbtest  (1).db')
+    con = sqlite3.connect('D:\language\project database\pyScript\my_data.db')
 
     con.commit()
     data = pd.read_sql(table, con)
@@ -137,118 +137,120 @@ def color_matching(piece_features, pieces):
     colors_test.append(c1_hsv)
     c2_hsv = (int(h2 * 360), int(s2 * 100), int(v2 * 100))
     colors_test.append(c2_hsv)
+
     # create_test_image(colors_test)
+
+    def get_color_score1(col_list):
+        score = 0
+        n = len(col_list)
+        for i in range(n - 1):
+            for j in range(i + 1, n):
+                color_i_hue = col_list[i][0]
+                color_j_hue = col_list[j][0]
+                abs_hue_diff = abs(color_i_hue - color_j_hue)
+                if abs_hue_diff <= 30 or 360 - abs_hue_diff <= 30:
+                    score += 1 / n
+
+        return score
+
+    def get_color_score2(col_list):
+        score = 0
+        n = len(col_list)
+        c = comb(n, 2)
+        # for any pair of colors (color_i, color_j) increase the score if they are complementary
+        for i in range(n - 1):
+            for j in range(i + 1, n):
+                color_i_hue = col_list[i][0]
+                color_i_hue_comp = color_i_hue + 180
+                if color_i_hue_comp >= 360:
+                    color_i_hue_comp -= 360
+                a = color_i_hue_comp - 30
+                color_j_hue = col_list[j][0]
+                if 0 <= color_j_hue - a <= 60:
+                    score += 1 / c
+
+        return score
+
+    def get_color_score3(col_list):
+        score = 0
+        n = len(col_list)
+        '''
+     Group1: Gray-ish (Black to White):-          HSV any         0-0.1       0-1
+     Group2: Brown-ish (beige, khaki, etc.):-     HSV 30-40       0.1-1.0     0.6-0.9
+     Group3: Navy-ish (levels of dark blue):-     HSV 230-250     0.8-1.0     0.2-0.4
+     '''
+        neutral_colors = []
+        for i in range(len(col_list) - 1, -1, -1):
+            col = col_list[i]
+            h = col[0]
+            s = col[1]
+            v = col[2]
+            if (0 <= h < 360 and 0 <= s <= 10 and 0 <= v <= 100) \
+                    or (30 <= h <= 40 and 10 <= s <= 100 and 55 <= v <= 90) \
+                    or (230 <= h <= 250 and 80 <= s <= 100 and 20 <= v <= 40):
+                neutral_colors.append(col)
+                col_list.pop()
+
+        score += len(neutral_colors) / n  # percentage of neutral colors
+        if len(col_list) > 1:
+            score += (len(col_list) / n) * max(get_color_score1(col_list),
+                                               get_color_score2(col_list))
+        else:
+            score += len(col_list) / n
+
+        return score
+
+    def get_color_matching_score(col_list):
+        scores = [get_color_score1(col_list),
+                  get_color_score2(col_list),
+                  get_color_score3(col_list)]
+        # print(f'Scores: {scores}')
+        return max(scores)
+
+    def create_test_image(colors):
+        width = 100 * len(colors)
+        height = 100
+
+        img = Image.new(mode="RGB", size=(width, height), color=0)
+        for i in range(len(colors)):
+            color = colorsys.hsv_to_rgb(colors[i][0] / 360, colors[i][1] / 100, colors[i][2] / 100)
+            color = tuple(round(i * 255) for i in color)
+            for x in range(height):
+                for y in range(height):
+                    img.putpixel((x + 100 * i, y), color)
+        img.show()
+
     return get_color_matching_score(colors_test)
 
 
-#
-# def rgb_to_hsv(r, g, b):
-#     r = float(r)
-#     g = float(g)
-#     b = float(b)
-#     high = max(r, g, b)
-#     low = min(r, g, b)
-#     h, s, v = high, high, high
-#
-#     d = high - low
-#     s = 0 if high == 0 else d / high
-#
-#     if high == low:
-#         h = 0.0
-#     else:
-#         h = {
-#             r: (g - b) / d + (6 if g < b else 0),
-#             g: (b - r) / d + 2,
-#             b: (r - g) / d + 4,
-#         }[high]
-#         h /= 6
-#
-#     return h, s, v
+def display_output(piece_id, recommendations_id):
+    # assume input was piece with ID = 41
+    # piece_id = 16
+    # assume recommendation was pieces with ID = [1, 8, 12, 14]
+    # recommendations_id = [36, 25, 18, 26, 3]
+
+    image_path = 'display_images/' + str(piece_id) + '.jpg'
+    image = plt.imread(image_path)
+    plt.subplot(2, len(recommendations_id), 1)
+    plt.title('Input')
+    fig = plt.imshow(image)
+    plt.axis('off')
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+
+    for i in range(len(recommendations_id)):
+        image_path = 'display_images/' + str(recommendations_id[i]) + '.jpg'
+        image = plt.imread(image_path)
+        plt.subplot(2, len(recommendations_id), len(recommendations_id) + i + 1)
+        plt.title('Rec ' + str(i + 1))
+        fig = plt.imshow(image)
+        plt.axis('off')
+        fig.axes.get_xaxis().set_visible(False)
+        fig.axes.get_yaxis().set_visible(False)
+
+    plt.show()
 
 
-def get_color_score1(col_list):
-    score = 0
-    n = len(col_list)
-    for i in range(n - 1):
-        for j in range(i + 1, n):
-            color_i_hue = col_list[i][0]
-            color_j_hue = col_list[j][0]
-            abs_hue_diff = abs(color_i_hue - color_j_hue)
-            if abs_hue_diff <= 30 or 360 - abs_hue_diff <= 30:
-                score += 1 / n
+print(recommender(16))
+display_output(16, recommender(16))
 
-    return score
-
-
-def get_color_score2(col_list):
-    score = 0
-    n = len(col_list)
-    c = comb(n, 2)
-    # for any pair of colors (color_i, color_j) increase the score if they are complementary
-    for i in range(n - 1):
-        for j in range(i + 1, n):
-            color_i_hue = col_list[i][0]
-            color_i_hue_comp = color_i_hue + 180
-            if color_i_hue_comp >= 360:
-                color_i_hue_comp -= 360
-            a = color_i_hue_comp - 30
-            color_j_hue = col_list[j][0]
-            if 0 <= color_j_hue - a <= 60:
-                score += 1 / c
-
-    return score
-
-
-def get_color_score3(col_list):
-    score = 0
-    n = len(col_list)
-    '''
-    Group1: Gray-ish (Black to White):-          HSV any         0-0.1       0-1
-    Group2: Brown-ish (beige, khaki, etc.):-     HSV 30-40       0.1-1.0     0.6-0.9
-    Group3: Navy-ish (levels of dark blue):-     HSV 230-250     0.8-1.0     0.2-0.4
-    '''
-    neutral_colors = []
-    for i in range(len(col_list) - 1, -1, -1):
-        col = col_list[i]
-        h = col[0]
-        s = col[1]
-        v = col[2]
-        if (0 <= h < 360 and 0 <= s <= 10 and 0 <= v <= 100) \
-                or (30 <= h <= 40 and 10 <= s <= 100 and 55 <= v <= 90) \
-                or (230 <= h <= 250 and 80 <= s <= 100 and 20 <= v <= 40):
-            neutral_colors.append(col)
-            col_list.pop()
-
-    score += len(neutral_colors) / n  # percentage of neutral colors
-    if len(col_list) > 1:
-        score += (len(col_list) / n) * max(get_color_score1(col_list),
-                                           get_color_score2(col_list))
-    else:
-        score += len(col_list) / n
-
-    return score
-
-
-def get_color_matching_score(col_list):
-    scores = [get_color_score1(col_list),
-              get_color_score2(col_list),
-              get_color_score3(col_list)]
-    print(f'Scores: {scores}')
-    return max(scores)
-
-
-def create_test_image(colors):
-    width = 100 * len(colors)
-    height = 100
-
-    img = Image.new(mode="RGB", size=(width, height), color=0)
-    for i in range(len(colors)):
-        color = colorsys.hsv_to_rgb(colors[i][0] / 360, colors[i][1] / 100, colors[i][2] / 100)
-        color = tuple(round(i * 255) for i in color)
-        for x in range(height):
-            for y in range(height):
-                img.putpixel((x + 100 * i, y), color)
-    img.show()
-
-
-print(recommender(39))
