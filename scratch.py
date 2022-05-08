@@ -1,9 +1,11 @@
 import sqlite3
-from math import comb
-from PIL import Image
-from colour import Color
 import pandas as pd
+from PIL import Image
+
+from colour import Color
 import colorsys
+from math import comb
+
 import matplotlib.pyplot as plt
 
 clothes = 'SELECT * FROM clothes'
@@ -14,13 +16,9 @@ fit = 'SELECT * FROM Fit'
 
 def query_db(dataframe_query, table):
     con = sqlite3.connect('D:\language\project database\pyScript\my_data.db')
-
     con.commit()
     data = pd.read_sql(table, con)
-    y = data.query(dataframe_query)
-
-    return y
-    pass
+    return data.query(dataframe_query)
 
 
 def get_score(piece_features, ok_pieces):
@@ -109,8 +107,9 @@ def sort_pieces(ok_pieces, scores):
 
 
 def recommender(piece_id: int):
+    # quarry input piece by id
     piece_features = query_db('id==%d' % piece_id, clothes)
-
+    # find the suitable pieces for the input piece
     if piece_features["Match"].iloc[0] == "3":
         ok_pieces = query_db('Match=="1" or Match=="2" ', clothes)
     else:
@@ -119,35 +118,46 @@ def recommender(piece_id: int):
     scores = []
 
     for i in range(ok_pieces.shape[0]):
-        scores.append(get_score(piece_features, ok_pieces["id"].iloc[i]))
+        scores.append(get_score(piece_features, ok_pieces["id"].iloc[i]))  # get score of every piece
     sorted_pieces = sort_pieces(ok_pieces, scores)  # sort ok_pieces according to scores list ...
-    # for i in range(len(sorted_pieces)):
-    #     sort_query = query_db('id==%d' % sorted_pieces[i],clothes)
-    #     print("sorted pieces : \n",sort_query)
     return sorted_pieces
 
 
 def color_matching(piece_features, pieces):
     colors_test = []
+    # convert color of piece_features to rgb color
     (r1, g1, b1) = Color("%s" % str(piece_features["Color"].iloc[0])).rgb
+    # convert color of pieces to rgb color
     (r2, g2, b2) = Color("%s" % str(pieces["Color"].iloc[0])).rgb
+    # convert rgb color of piece_features to hsv color
     (h1, s1, v1) = colorsys.rgb_to_hsv(r1, g1, b1)
+    # convert rgb color of pieces to hsv color
     (h2, s2, v2) = colorsys.rgb_to_hsv(r2, g2, b2)
+    # set range of HSV colors   (0-360, 0-100, 0-100)
     c1_hsv = (int(h1 * 360), int(s1 * 100), int(v1 * 100))
     colors_test.append(c1_hsv)
     c2_hsv = (int(h2 * 360), int(s2 * 100), int(v2 * 100))
     colors_test.append(c2_hsv)
 
-    # create_test_image(colors_test)
+    def get_color_matching_score(col_list):
+        scores = [get_color_score1(col_list),
+                  get_color_score2(col_list),
+                  get_color_score3(col_list)]
+        # print(f'Scores: {scores}')
+        return max(scores)
 
     def get_color_score1(col_list):
         score = 0
         n = len(col_list)
         for i in range(n - 1):
             for j in range(i + 1, n):
+                # hue of the first piece
                 color_i_hue = col_list[i][0]
+                # hue of the second piece
                 color_j_hue = col_list[j][0]
+                # difference between hue of the first piece and hue of the second piece
                 abs_hue_diff = abs(color_i_hue - color_j_hue)
+                # Hue fall within 30° on the color wheel
                 if abs_hue_diff <= 30 or 360 - abs_hue_diff <= 30:
                     score += 1 / n
 
@@ -156,7 +166,7 @@ def color_matching(piece_features, pieces):
     def get_color_score2(col_list):
         score = 0
         n = len(col_list)
-        c = comb(n, 2)
+        c = comb(n, 2)  # without repetition color and without order
         # for any pair of colors (color_i, color_j) increase the score if they are complementary
         for i in range(n - 1):
             for j in range(i + 1, n):
@@ -200,13 +210,6 @@ def color_matching(piece_features, pieces):
 
         return score
 
-    def get_color_matching_score(col_list):
-        scores = [get_color_score1(col_list),
-                  get_color_score2(col_list),
-                  get_color_score3(col_list)]
-        # print(f'Scores: {scores}')
-        return max(scores)
-
     def create_test_image(colors):
         width = 100 * len(colors)
         height = 100
@@ -219,7 +222,7 @@ def color_matching(piece_features, pieces):
                 for y in range(height):
                     img.putpixel((x + 100 * i, y), color)
         img.show()
-
+    create_test_image(colors_test)
     return get_color_matching_score(colors_test)
 
 
@@ -251,6 +254,6 @@ def display_output(piece_id, recommendations_id):
     plt.show()
 
 
-print(recommender(16))
-display_output(16, recommender(16))
-
+print(recommender(39))
+display_output(39, recommender(39))
+# create_test_image(colors_test)
