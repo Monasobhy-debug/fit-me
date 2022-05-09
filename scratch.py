@@ -22,16 +22,16 @@ def query_db(dataframe_query, table):
 
 
 def get_score(piece_features, ok_pieces):
-    score = 0
+    total_score = 0
     # iterate over rules and assign score
     for rule in get_recommender_rules(piece_features, ok_pieces):
-        score += rule
-    return score
+        total_score += rule
+    return total_score
 
 
-def get_recommender_rules(piece_features, ok_pieces):
+def get_recommender_rules(piece_features, ok_pieces_id):
     score = []
-    pieces = query_db('id==%d' % ok_pieces, clothes)
+    pieces = query_db('id==%d' % ok_pieces_id, clothes)
 
     for rule in range(1, 5):
         # Color rule
@@ -76,6 +76,7 @@ def get_recommender_rules(piece_features, ok_pieces):
                 score.append(score_print)
         # Fit rule
         if rule == 4:
+
             p1_fit_id = piece_features["FitId"].iloc[0]
             get_fit1_by_id = query_db('id == %d' % p1_fit_id, fit)
             p1_fit = get_fit1_by_id["Fit"].iloc[0]
@@ -99,7 +100,7 @@ def sort_pieces(ok_pieces, scores):
 
     for i in range(ok_pieces.shape[0]):
         pieces.append(ok_pieces["id"].iloc[i])
-
+    # sort best pieces for the sake of scores
     scores, pieces = (list(t) for t in zip(*sorted(zip(scores, pieces), reverse=True)))
 
     return pieces[:5]
@@ -115,11 +116,11 @@ def recommender(piece_id: int):
     else:
         ok_pieces = query_db('Match=="3" or Match != "%d" ' % int(piece_features["Match"].iloc[0]), clothes)
 
-    scores = []
-
+    final_scores = []
+    # iterate over pieces in ok_pieces
     for i in range(ok_pieces.shape[0]):
-        scores.append(get_score(piece_features, ok_pieces["id"].iloc[i]))  # get score of every piece
-    sorted_pieces = sort_pieces(ok_pieces, scores)  # sort ok_pieces according to scores list ...
+        final_scores.append(get_score(piece_features, ok_pieces["id"].iloc[i]))  # get score of every piece
+    sorted_pieces = sort_pieces(ok_pieces, final_scores)  # sort ok_pieces according to scores list ...
     return sorted_pieces
 
 
@@ -166,16 +167,20 @@ def color_matching(piece_features, pieces):
     def get_color_score2(col_list):
         score = 0
         n = len(col_list)
-        c = comb(n, 2)  # without repetition color and without order
+        c = comb(n, 2)  # without repetition color
         # for any pair of colors (color_i, color_j) increase the score if they are complementary
         for i in range(n - 1):
             for j in range(i + 1, n):
+                # hue of the first piece
                 color_i_hue = col_list[i][0]
+                # hue of complementary the first piece
                 color_i_hue_comp = color_i_hue + 180
                 if color_i_hue_comp >= 360:
                     color_i_hue_comp -= 360
                 a = color_i_hue_comp - 30
+                # hue of the second piece
                 color_j_hue = col_list[j][0]
+                # check if hue of the second piece is complementary to hue of the first piece
                 if 0 <= color_j_hue - a <= 60:
                     score += 1 / c
 
@@ -185,16 +190,16 @@ def color_matching(piece_features, pieces):
         score = 0
         n = len(col_list)
         '''
-     Group1: Gray-ish (Black to White):-          HSV any         0-0.1       0-1
-     Group2: Brown-ish (beige, khaki, etc.):-     HSV 30-40       0.1-1.0     0.6-0.9
-     Group3: Navy-ish (levels of dark blue):-     HSV 230-250     0.8-1.0     0.2-0.4
-     '''
+       Group1: Gray-ish (Black to White):-          HSV any         0-0.1       0-1
+       Group2: Brown-ish (beige, khaki, etc.):-     HSV 30-40       0.1-1.0     0.6-0.9
+       Group3: Navy-ish (levels of dark blue):-     HSV 230-250     0.8-1.0     0.2-0.4
+        '''
         neutral_colors = []
         for i in range(len(col_list) - 1, -1, -1):
             col = col_list[i]
-            h = col[0]
-            s = col[1]
-            v = col[2]
+            h = col[0]  # hue from HSV color of single piece
+            s = col[1]  # Saturation from HSV color of single piece
+            v = col[2]  # Value from HSV color of single piece
             if (0 <= h < 360 and 0 <= s <= 10 and 0 <= v <= 100) \
                     or (30 <= h <= 40 and 10 <= s <= 100 and 55 <= v <= 90) \
                     or (230 <= h <= 250 and 80 <= s <= 100 and 20 <= v <= 40):
@@ -210,19 +215,19 @@ def color_matching(piece_features, pieces):
 
         return score
 
-    def create_test_image(colors):
-        width = 100 * len(colors)
-        height = 100
-
-        img = Image.new(mode="RGB", size=(width, height), color=0)
-        for i in range(len(colors)):
-            color = colorsys.hsv_to_rgb(colors[i][0] / 360, colors[i][1] / 100, colors[i][2] / 100)
-            color = tuple(round(i * 255) for i in color)
-            for x in range(height):
-                for y in range(height):
-                    img.putpixel((x + 100 * i, y), color)
-        img.show()
-    create_test_image(colors_test)
+    # def create_test_image(colors):
+    #     width = 100 * len(colors)
+    #     height = 100
+    #
+    #     img = Image.new(mode="RGB", size=(width, height), color=0)
+    #     for i in range(len(colors)):
+    #         color = colorsys.hsv_to_rgb(colors[i][0] / 360, colors[i][1] / 100, colors[i][2] / 100)
+    #         color = tuple(round(i * 255) for i in color)
+    #         for x in range(height):
+    #             for y in range(height):
+    #                 img.putpixel((x + 100 * i, y), color)
+    #     img.show()
+    # create_test_image(colors_test)
     return get_color_matching_score(colors_test)
 
 
