@@ -1,9 +1,12 @@
 import sqlite3
 import pandas as pd
+
 from PIL import Image
 
 from colour import Color
+
 import colorsys
+
 from math import comb
 
 import matplotlib.pyplot as plt
@@ -21,10 +24,10 @@ def query_db(dataframe_query, table):
     return data.query(dataframe_query)
 
 
-def get_score(piece_features, ok_pieces):
+def get_score(piece_features, ok_pieces_id):
     total_score = 0
     # iterate over rules and assign score
-    for rule in get_recommender_rules(piece_features, ok_pieces):
+    for rule in get_recommender_rules(piece_features, ok_pieces_id):
         total_score += rule
     return total_score
 
@@ -37,7 +40,6 @@ def get_recommender_rules(piece_features, ok_pieces_id):
         # Color rule
         if rule == 1:
             color_score = color_matching(piece_features, pieces)
-            # print(f'Color Matching Score: {color_score}')
 
             score.append(color_score)
 
@@ -74,6 +76,7 @@ def get_recommender_rules(piece_features, ok_pieces_id):
                 score.append(0)
             else:
                 score.append(score_print)
+
         # Fit rule
         if rule == 4:
 
@@ -108,7 +111,7 @@ def sort_pieces(ok_pieces, scores):
 
 
 def recommender(piece_id: int):
-    # quarry input piece by id
+    # query input piece by id
     piece_features = query_db('id==%d' % piece_id, clothes)
     # find the suitable pieces for the input piece
     if piece_features["Match"].iloc[0] == "3":
@@ -121,6 +124,7 @@ def recommender(piece_id: int):
     for i in range(ok_pieces.shape[0]):
         final_scores.append(get_score(piece_features, ok_pieces["id"].iloc[i]))  # get score of every piece
     sorted_pieces = sort_pieces(ok_pieces, final_scores)  # sort ok_pieces according to scores list ...
+
     return sorted_pieces
 
 
@@ -215,37 +219,38 @@ def color_matching(piece_features, pieces):
 
         return score
 
-    # def create_test_image(colors):
-    #     width = 100 * len(colors)
-    #     height = 100
-    #
-    #     img = Image.new(mode="RGB", size=(width, height), color=0)
-    #     for i in range(len(colors)):
-    #         color = colorsys.hsv_to_rgb(colors[i][0] / 360, colors[i][1] / 100, colors[i][2] / 100)
-    #         color = tuple(round(i * 255) for i in color)
-    #         for x in range(height):
-    #             for y in range(height):
-    #                 img.putpixel((x + 100 * i, y), color)
-    #     img.show()
-    # create_test_image(colors_test)
     return get_color_matching_score(colors_test)
 
 
-def display_output(piece_id, recommendations_id):
-    # assume input was piece with ID = 41
-    # piece_id = 16
-    # assume recommendation was pieces with ID = [1, 8, 12, 14]
-    # recommendations_id = [36, 25, 18, 26, 3]
+def create_test_image(colors):
+    width = 100 * len(colors)
+    height = 100
 
+    img = Image.new(mode="RGB", size=(width, height), color=0)
+    for i in range(len(colors)):
+        color = colorsys.hsv_to_rgb(colors[i][0] / 360, colors[i][1] / 100, colors[i][2] / 100)
+        color = tuple(round(i * 255) for i in color)
+        for x in range(height):
+            for y in range(height):
+                img.putpixel((x + 100 * i, y), color)
+    img.show()
+
+
+def display_output(piece_id, recommendations_id):
     image_path = 'display_images/' + str(piece_id) + '.jpg'
+    # read image
     image = plt.imread(image_path)
+    # create a figure
     plt.subplot(2, len(recommendations_id), 1)
+    # specify title for the image and display it
     plt.title('Input')
+    # display data as an image
     fig = plt.imshow(image)
+    # hide axis of the image
     plt.axis('off')
     fig.axes.get_xaxis().set_visible(False)
     fig.axes.get_yaxis().set_visible(False)
-
+    # iterate over recommendations id and display it
     for i in range(len(recommendations_id)):
         image_path = 'display_images/' + str(recommendations_id[i]) + '.jpg'
         image = plt.imread(image_path)
@@ -255,10 +260,10 @@ def display_output(piece_id, recommendations_id):
         plt.axis('off')
         fig.axes.get_xaxis().set_visible(False)
         fig.axes.get_yaxis().set_visible(False)
-
     plt.show()
 
 
-print(recommender(39))
 display_output(39, recommender(39))
+print(recommender(39))
+
 # create_test_image(colors_test)
