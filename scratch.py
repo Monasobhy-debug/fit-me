@@ -262,8 +262,8 @@ def display_output(piece_id, recommendations_id):
         fig.axes.get_yaxis().set_visible(False)
     plt.show()
 
+print(recommender(16))
+display_output(16, recommender(16))
 
-display_output(39, recommender(39))
-print(recommender(39))
 
 # create_test_image(colors_test)
